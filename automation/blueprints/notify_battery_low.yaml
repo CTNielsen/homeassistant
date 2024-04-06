@@ -1,54 +1,65 @@
 blueprint:
-  name: Forward persistent notification to mobile device
-  description: An automation that forwards notifications to mobile device as push messages.
-    Also makes sure to remove the notification from devices if dismissed from other device or web.
+  name: Low battery level detection & notification for all battery sensors
+  description: Regularly test all sensors with 'battery' device-class for crossing a certain battery level threshold and if so create a persistent notification
   domain: automation
   author: Claus Nielsen
   input:
-    notify_device:
-      name: Device to notify
-      description: Device needs to run the official Home Assistant app to receive
-        notifications.
+    threshold:
+      name: Battery warning level threshold
+      description: Battery sensors below threshold are assumed to be low-battery (as
+        well as binary battery sensors with value 'on').
+      default: 20
       selector:
-        device:
+        number:
+          min: 5.0
+          max: 100.0
+          unit_of_measurement: '%'
+          mode: slider
+          step: 5.0
+    time:
+      name: Time to test on
+      description: Test is run  every day at configured time
+      default: '10:00:00'
+      selector:
+        time: {}
+    exclude:
+      name: Excluded Sensors
+      description: Battery sensors (e.g. smartphone) to exclude from detection
+      default: []
+      selector:
+        entity:
+          multiple: true
           filter:
-          - integration: mobile_app
-          multiple: false
-
-mode: queued
-max: 100
-
+            device_class: battery
+variables:
+  threshold: !input 'threshold'
+  exclude: !input 'exclude'
+  sensors: >-
+    {% set result = namespace(sensors=[]) %}
+    {% for state in states.sensor | selectattr('attributes.device_class', '==', 'battery') %}
+      {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in exclude %}
+        {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
+      {% endif %}
+    {% endfor %}
+    {% for state in states.binary_sensor | selectattr('attributes.device_class', '==', 'battery') | selectattr('state', '==', 'on') %}
+      {% if not state.entity_id in exclude %}
+        {% set result.sensors = result.sensors + [state.name] %}
+      {% endif %}
+    {% endfor %}
+    {{result.sensors}}
 trigger:
-  - platform: persistent_notification
-    update_type:
-      - added
-      - removed
-    notification_id: ""
+- platform: time
+  at: !input 'time'
 action:
-  - choose:
-    - conditions:
-        - alias: Notification added
-          condition: template
-          value_template: "{{ trigger.update_type == 'added' }}"
-      sequence:
-        - alias: Send notification
-          domain: mobile_app
-          type: notify
-          device_id: !input notify_device
-          title: "{{ trigger.notification.title }}"
-          message: "{{ trigger.notification.message }}"
-          data:
-            sticky: true
-            tag: "{{ trigger.notification.notification_id }}"
-    - conditions:
-        - alias: Notification removed
-          condition: template
-          value_template: "{{ trigger.update_type == 'removed' }}"
-      sequence:
-        - alias: Clear notification
-          domain: mobile_app
-          type: notify
-          device_id: !input notify_device
-          message: clear_notification
-          data:
-            tag: "{{ trigger.notification.notification_id }}"
+- repeat:
+    for_each: "{{ sensors }}"
+    sequence:
+      - variables:
+          message: 
+          title: Low sensor battery level
+      - service: notify.persistent_notification
+        data:
+          title: Low sensor battery level
+          message: Sensor {{repeat.item or '"Unknown Sensor"'}}
+
+mode: single
