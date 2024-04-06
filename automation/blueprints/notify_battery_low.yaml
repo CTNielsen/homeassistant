@@ -3,6 +3,7 @@ blueprint:
   description: Regularly test all sensors with 'battery' device-class for crossing a certain battery level threshold and if so create a persistent notification
   domain: automation
   author: Claus Nielsen
+  source_url: https://github.com/CTNielsen/homeassistant/blob/main/automation/blueprints/notify_battery_low.yaml
   input:
     title:
       name: Title
