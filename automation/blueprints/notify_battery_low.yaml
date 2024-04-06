@@ -25,7 +25,7 @@ blueprint:
         time: {}
     single_notification:
       name: Create only one notification
-      description: Limit the notifications to a single per day. False means a notification is created per device running low on battery.
+      description: Limit the notifications to a single per day. 'false' meaning a notification is created per device running low on battery.
       selector:
         boolean:
     title:
