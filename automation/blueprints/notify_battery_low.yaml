@@ -13,8 +13,8 @@ blueprint:
         text: {}
     message:
       name: Message
-      description: Notification message (variable 'current' is available for use with members 'name' and 'percentage')
-      default: Sensor {{ current.name ~ ' (' ~ current.percentage ~ '%)' }}
+      description: Notification message (variable 'sensor' is available for use with members 'name' and 'percentage' which can be used to construct the message)
+      default: Sensor {{ sensor.name ~ ' (' ~ sensor.percentage ~ '%)' }}
       selector:
         text: {}
     threshold:
@@ -70,7 +70,7 @@ action:
     for_each: "{{ sensors }}"
     sequence:
       - variables:
-          current: >-
+          sensor: >-
             {{ repeat.item }}
       - service: notify.persistent_notification
         data:
