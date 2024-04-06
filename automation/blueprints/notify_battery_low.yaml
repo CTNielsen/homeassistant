@@ -4,6 +4,18 @@ blueprint:
   domain: automation
   author: Claus Nielsen
   input:
+    title:
+      name: Title
+      description: Notification title
+      default: Low battery level
+      selector:
+        text: {}
+    message:
+      name: Message
+      description: Notification message
+      default: Sensor {{ current.name ~ ' (' ~ current.percentage ~ '%)' }}
+      selector:
+        text: {}
     threshold:
       name: Battery warning level threshold
       description: Battery sensors below threshold are assumed to be low-battery (as
@@ -31,6 +43,8 @@ blueprint:
           multiple: true
           filter:
             device_class: battery
+
+mode: single
 variables:
   threshold: !input 'threshold'
   exclude: !input 'exclude'
@@ -38,15 +52,15 @@ variables:
     {% set result = namespace(sensors=[]) %}
     {% for state in states.sensor | selectattr('attributes.device_class', '==', 'battery') %}
       {% if 0 <= state.state | int(-1) < threshold | int and not state.entity_id in exclude %}
-        {% set result.sensors = result.sensors + [state.name ~ ' (' ~ state.state ~ ' %)'] %}
+        {% set result.sensors = result.sensors + [{'name': state.name, 'percentage':state.state}] %}
       {% endif %}
     {% endfor %}
     {% for state in states.binary_sensor | selectattr('attributes.device_class', '==', 'battery') | selectattr('state', '==', 'on') %}
       {% if not state.entity_id in exclude %}
-        {% set result.sensors = result.sensors + [state.name] %}
+        {% set result.sensors = result.sensors + [{'name': state.name, 'percentage':0}] %}
       {% endif %}
     {% endfor %}
-    {{result.sensors}}
+    {{ result.sensors }}
 trigger:
 - platform: time
   at: !input 'time'
@@ -55,11 +69,10 @@ action:
     for_each: "{{ sensors }}"
     sequence:
       - variables:
-          message: 
-          title: Low sensor battery level
+          current: >-
+            {{ repeat.item }}
       - service: notify.persistent_notification
         data:
-          title: Low sensor battery level
-          message: Sensor {{repeat.item or '"Unknown Sensor"'}}
+          title: !input title
+          message: !input message
 
-mode: single
