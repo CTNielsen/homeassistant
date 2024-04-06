@@ -12,7 +12,7 @@ blueprint:
         text: {}
     message:
       name: Message
-      description: Notification message
+      description: Notification message (variable 'current' is available for use with members 'name' and 'percentage')
       default: Sensor {{ current.name ~ ' (' ~ current.percentage ~ '%)' }}
       selector:
         text: {}
