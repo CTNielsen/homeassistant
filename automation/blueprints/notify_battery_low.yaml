@@ -5,18 +5,6 @@ blueprint:
   author: Claus Nielsen
   source_url: https://github.com/CTNielsen/homeassistant/blob/main/automation/blueprints/notify_battery_low.yaml
   input:
-    title:
-      name: Title
-      description: Notification title
-      default: Low battery level
-      selector:
-        text: {}
-    message:
-      name: Message
-      description: Notification message (variable 'sensor' is available for use with members 'name' and 'percentage' which can be used to construct the message)
-      default: Sensor {{ sensor.name ~ ' (' ~ sensor.percentage ~ '%)' }}
-      selector:
-        text: {}
     threshold:
       name: Battery warning level threshold
       description: Battery sensors below threshold are assumed to be low-battery (as
@@ -35,6 +23,23 @@ blueprint:
       default: '10:00:00'
       selector:
         time: {}
+    single_notification:
+      name: Create only one notification
+      description: Limit the notifications to a single per day. False means a notification is created per device running low on battery.
+      selector:
+        boolean:
+    title:
+      name: Title
+      description: Notification title
+      default: Low battery level
+      selector:
+        text: {}
+    message:
+      name: Message
+      description: Notification message (variable 'sensor' is available for use with members 'name' and 'percentage' which can be used to construct the message)
+      default: Sensor {{ sensor.name ~ ' (' ~ sensor.percentage ~ '%)' }}
+      selector:
+        text: {}
     exclude:
       name: Excluded Sensors
       description: Battery sensors (e.g. smartphone) to exclude from detection
@@ -47,6 +52,7 @@ blueprint:
 
 mode: single
 variables:
+  single_notification: !input 'single_notification'
   threshold: !input 'threshold'
   exclude: !input 'exclude'
   sensors: >-
@@ -63,17 +69,28 @@ variables:
     {% endfor %}
     {{ result.sensors }}
 trigger:
-- platform: time
-  at: !input 'time'
+  - platform: time
+    at: !input 'time'
 action:
-- repeat:
-    for_each: "{{ sensors }}"
-    sequence:
+  - if:
+      - condition: template
+        value_template: !input 'single_notification'
+    then:
       - variables:
-          sensor: >-
-            {{ repeat.item }}
+          sensor: "{{ sensors[0] }}"
       - service: notify.persistent_notification
         data:
           title: !input title
           message: !input message
+    else:
+      - repeat:
+          for_each: "{{ sensors }}"
+          sequence:
+            - variables:
+                sensor: >-
+                  {{ repeat.item }}
+            - service: notify.persistent_notification
+              data:
+                title: !input title
+                message: !input message
 
