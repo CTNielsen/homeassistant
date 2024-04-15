@@ -1,13 +1,13 @@
 blueprint:
   name: Low battery level detection & notification for all battery sensors
-  description: Regularly test all sensors with 'battery' device-class for crossing a certain battery level threshold and if so create a persistent notification
+  description: Regularly tests all sensors with device-class 'battery' for crossing a certain battery level threshold and if so create a persistent notification.
   domain: automation
   author: Claus Nielsen
   source_url: https://github.com/CTNielsen/homeassistant/blob/main/automation/blueprints/notify_battery_low.yaml
   input:
     threshold:
       name: Battery warning level threshold
-      description: Battery sensors below threshold are assumed to be low-battery (as
+      description: Battery sensors below this threshold are low-battery (as
         well as binary battery sensors with value 'on').
       default: 20
       selector:
@@ -18,14 +18,14 @@ blueprint:
           mode: slider
           step: 5.0
     time:
-      name: Time to test on
-      description: Test is run  every day at configured time
+      name: Time of day to do the test
+      description: Test is run every day at the configured time
       default: '10:00:00'
       selector:
         time: {}
     single_notification:
       name: Create only one notification
-      description: Limit the notifications to a single per day. 'false' meaning a notification is created per device running low on battery.
+      description: Limit the notifications to a single per day. 'false' meaning one notification is created per device running low on battery.
       selector:
         boolean:
     title:
