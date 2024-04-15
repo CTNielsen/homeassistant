@@ -3,8 +3,6 @@ blueprint:
   description: An automation that forwards notifications to mobile device as push messages.
     Also makes sure to remove the notification from devices if dismissed from other device or web.
   domain: automation
-  author: Claus Nielsen
-  source_url: https://github.com/CTNielsen/homeassistant/blob/main/automation/blueprints/notify_persistent_notification.yaml
   input:
     notify_device:
       name: Device to notify
