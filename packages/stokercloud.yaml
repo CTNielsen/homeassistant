@@ -1,0 +1,488 @@
+
+rest_command:
+  # Request refreshtoken.
+  # Parameters:
+  #   user:           StokerCloud username
+  #   password:       StokerCloud password
+  # Returns
+  #   status:         Seen as '0' with correct credentials
+  #   message:        Seen as 'OK' with correct credentials
+  #   credentials:    Seen as 'full' with correct credentials
+  #   token:          Refreshtoken from reqeust. Use in requests below
+  stokercloud_authenticate:
+    url: "https://www.stokercloud.dk/v16bckbeta/dataout2/login.php?user={{user}}&password={{password}}"
+    method: post
+    verify_ssl: true
+    headers:
+      accept: "application/json"
+
+  # Set boiler forward temperature.
+  # Parameters:
+  #   token:          Refreshtoken from authenticate command
+  #   target:         Target to update. Currently known targets
+  #                     - misc.start        Start burner (value must be '1')
+  #                     - misc.stop         Stop burner (value must be '1')
+  #                     - boiler.temp       Set temperature (value between '0' and '85')
+  #   value:          New value
+  # Returns:
+  #   status:         Seen as '0' with valid refreshtoken
+  #   updated_field:  Field updated, should be the same as 'target'
+  #   updated_value:  New value used
+  stokercloud_update:
+    url: "https://stokercloud.dk/v16bckbeta/dataout2/updatevalue.php?menu={{target}}&name={{target}}&token={{token}}&value={{value}}"
+    method: post
+    verify_ssl: true
+    headers:
+      accept: "application/json"
+
+  # Get boiler data
+  # Parameters:
+  #   token:          Refreshtoken from authenticate command
+  # Returns:
+  stokercloud_status:
+    url: "https://stokercloud.dk/v16bckbeta/dataout2/controllerdata2.php?screen=b1,17,b2,5,b3,4,b4,6,b5,25,b6,14,b7,15,b8,16,b9,9,b10,7,d1,3,d2,4,d3,0,d4,0,d5,0,d6,0,d7,0,d8,0,d9,0,d10,0,h1,2,h2,3,h3,4,h4,7,h5,8,h6,1,h7,0,h8,0,h9,0,h10,0,w1,2,w2,3,w3,9,w4,11,w5,11&token={{token}}"
+    method: get
+    verify_ssl: true
+    headers:
+      accept: "application/json"
+
+
+switch:
+
+  - platform: template
+    switches:
+
+      # Switch to toggle boiler on/off
+      boiler_on_off:
+        friendly_name: Boiler On/Off
+        unique_id: b224f64d-2439-4977-aad6-c2109b78fed1
+        value_template: "{{ states('binary_sensor.boiler_on') }}"
+        turn_on:
+          - service: rest_command.stokercloud_authenticate
+            data:
+              user: !secret stokercloud_user
+              password: !secret stokercloud_password
+            response_variable: authentication_response
+          - if:
+              - condition: template
+                value_template: "{{ authentication_response['status'] | int != 200 }}"
+            then:
+              - event: stokercloud_update
+                event_data:
+                  status: "FAIL"
+                  user: !secret stokercloud_user
+                  target: "authenticate"
+                  response: "{{ authentication_response }}"
+              - stop: "Stokercloud failed to authenticate"
+                error: true
+          - service: rest_command.stokercloud_update
+            data:
+              token: "{{ authentication_response['content']['token'] }}"
+              target: "misc.start"
+              value: "1"
+            response_variable: response
+          - if:
+              - condition: template
+                value_template: "{{ response['status'] | int == 200 and response['content']['onlineandsaved'] | int == 1 }}"
+            then:
+              - event: stokercloud_update
+                event_data:
+                  status: "OK"
+                  user: !secret stokercloud_user
+                  target: "misc.start"
+                  running: "{{ 1 }}"
+            else:
+              - event: stokercloud_update
+                event_data:
+                  status: "FAIL"
+                  user: !secret stokercloud_user
+                  target: "misc.start"
+                  response: "{{response}}"
+        turn_off:
+          - service: rest_command.stokercloud_authenticate
+            data:
+              user: !secret stokercloud_user
+              password: !secret stokercloud_password
+            response_variable: authentication_response
+          - if:
+              - condition: template
+                value_template: "{{ authentication_response['status'] | int != 200 }}"
+            then:
+              - event: stokercloud_update
+                event_data:
+                  status: "FAIL"
+                  user: !secret stokercloud_user
+                  target: "authenticate"
+                  response: "{{ authentication_response }}"
+              - stop: "Stokercloud failed to authenticate"
+                error: true
+          - service: rest_command.stokercloud_update
+            data:
+              token: "{{ authentication_response['content']['token'] }}"
+              target: "misc.stop"
+              value: "1"
+            response_variable: response
+          - if:
+              - condition: template
+                value_template: "{{ response['status'] | int == 200 and response['content']['onlineandsaved'] | int == 1 }}"
+            then:
+              - event: stokercloud_update
+                event_data:
+                  status: "OK"
+                  user: !secret stokercloud_user
+                  target: "misc.stop"
+                  running: "{{ 0 }}"
+            else:
+              - event: stokercloud_update
+                event_data:
+                  status: "FAIL"
+                  user: !secret stokercloud_user
+                  target: "misc.stop"
+                  response: "{{response}}"
+
+
+
+template:
+
+  - number:
+
+        # Number input to set boiler target temperature
+      - name: Boiler Forward Temperature Setpoint
+        unique_id: defa2ee9-8900-45b6-8858-e1e0a7e8f24d
+        min: 0
+        max: 85
+        step: 1
+        availability: >-
+          {{ states('sensor.boiler_forward_temperature_target') not in ['unavailable'] }}
+        state: >-
+          {% set val = states('sensor.boiler_forward_temperature_target') %}
+          {{ val if val in ['unavailable', 'unknown'] else val | float }}
+        set_value:
+          - service: rest_command.stokercloud_authenticate
+            data:
+              user: !secret stokercloud_user
+              password: !secret stokercloud_password
+            response_variable: authentication_response
+          - if:
+              - condition: template
+                value_template: "{{ authentication_response['status'] | int != 200 }}"
+            then:
+              - event: stokercloud_update
+                event_data:
+                  status: "FAIL"
+                  user: !secret stokercloud_user
+                  target: "authenticate"
+                  response: "{{ authentication_response }}"
+              - stop: "Stokercloud failed to authenticate"
+                error: true
+          - service: rest_command.stokercloud_update
+            data:
+              token: "{{ authentication_response['content']['token'] }}"
+              target: "boiler.temp"
+              value: "{{ value }}"
+            response_variable: response
+          - if:
+              - condition: template
+                value_template: "{{ response['status'] | int == 200 and response['content']['onlineandsaved'] | int == 1 }}"
+            then:
+              - event: stokercloud_update
+                event_data:
+                  status: "OK"
+                  user: !secret stokercloud_user
+                  target: "boiler.temp"
+                  refboilertemp: "{{ response['content']['updated_value'] }}"
+            else:
+              - event: stokercloud_update
+                event_data:
+                  status: "FAIL"
+                  user: !secret stokercloud_user
+                  target: "boiler.temp"
+                  response: "{{ response }}"
+
+    # Trigger reading status from stokercloud every 1 minute
+    # Data read is published on event 'stokercloud_status'
+  - trigger:
+      - platform: time_pattern
+        minutes: /1
+    action:
+      - service: rest_command.stokercloud_authenticate
+        data:
+          user: !secret stokercloud_user
+          password: !secret stokercloud_password
+        response_variable: authentication_response
+      - if:
+          - condition: template
+            value_template: "{{ authentication_response['status'] | int != 200 }}"
+        then:
+          - event: stokercloud_status
+            event_data:
+              status: "FAIL"
+              user: !secret stokercloud_user
+              target: "authenticate"
+              response: "{{ authentication_response }}"
+          - stop: "Stokercloud failed to authenticate"
+            error: true
+      - service: rest_command.stokercloud_status
+        data:
+          token: "{{ authentication_response['content']['token'] }}"
+        response_variable: response
+      - if:
+          - condition: template
+            value_template: "{{ response['status'] | int != 200 or response['content']['weatherdata'][0]['value'] == 'tokenexpired' }}"
+        then:
+          - event: stokercloud_status
+            event_data:
+              status: "FAIL"
+              user: !secret stokercloud_user
+              target: "status"
+              response: "{{ response }}"
+          - stop:
+            error: true
+      - event: stokercloud_status
+        event_data:
+          status: "OK"
+          user: !secret stokercloud_user
+          target: "status"
+          boilertemp: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'boilertemp') | first)['value']}}"
+          refboilertemp: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', '-wantedboilertemp') | first)['value'] }}"
+          refoxygen: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'refoxygen') | first)['value'] }}"
+          refair: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'refair') | first)['value'] }}"
+          smoketemp: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'smoketemp') | first)['value'] }}"
+          oxygen: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'oxygen') | first)['value'] }}"
+          pressure: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'pressure') | first)['value'] }}"
+          exhaust: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'exhaust') | first)['value'] }}"
+          ashdist: "{{ (response['content']['frontdata'] | selectattr('id', 'eq', 'ashdist') | first)['value'] }}"
+          
+          blower: "{{ (response['content']['boilerdata'] | selectattr('id', 'eq', '25') | first)['value'] }}"
+          returntemp: "{{ (response['content']['boilerdata'] | selectattr('id', 'eq', '17') | first)['value'] }}"
+          shafttemp: "{{ (response['content']['boilerdata'] | selectattr('id', 'eq', '7') | first)['value'] }}"
+
+          state: "{{ response['content']['miscdata']['state']['value'] }}"
+          alarm: "{{ response['content']['miscdata']['alarm'] }}"
+          running: "{{ response['content']['miscdata']['running'] }}"
+          outputpwr: "{{ response['content']['miscdata']['output'] }}"
+          outputpct: "{{ response['content']['miscdata']['outputpct'] }}"
+          infomessage: "{{ response['content']['infomessages'][0] if response['content']['infomessages'] | length > 0 else '' }}"
+          isonline: "{{ not (response['content']['notconnected'] | bool) }}"
+
+    sensor:
+
+        # Sensor required to keep above action out of an automation
+        # Creating an automation will expose sensitive data in UI
+      - name: Boiler Update Time
+        unique_id: eb9c096a-27a6-472a-b3ed-ffc4de7d8412
+        state: "{{ now() }}"
+        device_class: timestamp
+
+  - binary_sensor:
+
+        # Template sensor that adds additional conditions to the 'Running' feedback from boiler
+        # Entity ID 'binary_sensor.boiler_on' used by other sensors 
+      - name: Boiler On
+        unique_id: d95fc5b2-f70b-47cf-b59f-be0ac7f8362c
+        state: "{{ states('binary_sensor.boiler_running') == 'on' or 
+          states('sensor.boiler_state') in ['IGNITION_1', 'IGNITION_2', 'RUNNING', 'RUNNING_HW', 'STOPPED_TR', 'CLEANING'] }}"
+
+        # Template sensor that adds additional conditions to the 'Alarm' feedback from boiler
+      - name: Boiler Fault
+        unique_id: 8f360e64-fb93-4028-ba3a-9c3e3f9dffc3
+        state: "{{ states('binary_sensor.boiler_alarm') == 'on' or
+          states('sensor.boiler_state') in ['FAULT_IGNITION', 'HOPPER_EMPTY'] }}"
+
+    # Trigger that updates sensors with data from status and update event triggers above
+    # Note that status event exposes all values where update events only exposes the value updated
+  - trigger:
+      - platform: event
+        event_type:
+          - stokercloud_update
+          - stokercloud_status
+
+    binary_sensor:
+
+        # Boiler running state.
+        # Note that boiler does not report running during e.g. cleaning or stopped if temperature is reached.
+        # See 'Boiler On' sensor for better status
+        # Entity ID 'binary_sensor.boiler_running' used by other sensors 
+      - name: Boiler Running
+        unique_id: f675f94f-b17f-4013-b672-356fd834e2a3
+        state: "{{ trigger.event.data.running | default(states(this.entity_id)) }}"
+
+        # Boiler alarm state.
+        # Note that boiler does not report alarm on e.g. empty hopper.
+        # See 'Boiler Fault' sensor for better status
+        # Entity ID 'binary_sensor.boiler_alarm' used by other sensors 
+      - name: Boiler Alarm
+        unique_id: bcd52df0-b215-4a73-b86d-e9631f12658c
+        state: "{{ trigger.event.data.alarm | default(states(this.entity_id)) }}"
+
+    sensor:
+
+        # Boiler state enumeration. 'lng_state_xx' are translated into known states or passed as is if unknown
+        # Entity ID 'sensor.boiler_state' used by other sensors
+      - name: Boiler State
+        unique_id: 28ed9ce1-65f0-45e4-8470-c6f96eb2b339
+        device_class: enum
+        state: >-
+          {% if trigger.event.data.state | default(None) == None %}
+            {{ states(this.entity_id) }}
+          {% else %}
+            {% set values = 
+              {
+                'lng_state_2':'IGNITION_1',
+                'lng_state_4':'IGNITION_2',
+                'lng_state_5':'RUNNING',
+                'lng_state_7':'RUNNING_HW',
+                'lng_state_9':'STOPPED_TR',
+                'lng_state_13':'FAULT_IGNITION',
+                'lng_state_14':'STOPPED',
+                'lng_state_24':'STOPPED_EC',
+                'lng_state_43':'CLEANING',
+                'lng_state_46':'HOPPER_EMPTY'
+              }  
+            %}
+            {{ values[trigger.event.data.state] if trigger.event.data.state in values else trigger.event.data.state }}
+          {% endif %}
+
+        # Boiler info message. Info message index are translated into known messages or passed as is if unknown
+      - name: Boiler Info Message
+        unique_id: 4e0b06aa-e914-4f39-ba54-ab5a5d60cb25
+        device_class: enum
+        state: >-
+          {% if trigger.event.data.infomessage | default(None) == None %}
+            {{ states(this.entity_id) }}
+          {% else %}
+            {% set values = 
+              {
+                '23':'Woodpellet level low'
+              }  
+            %}
+            {{ values[trigger.event.data.infomessage | string] if trigger.event.data.infomessage | string in values else trigger.event.data.infomessage | string }}
+          {% endif %}
+
+        # Boiler target forward temperature
+        # Entity ID 'sensor.boiler_forward_temperature_target' used by other sensors
+      - name: Boiler Forward Temperature Target
+        unique_id: 4c30758f-143f-4ca2-8736-3cc7c5d9fcfc
+        state: >-
+          {% set val = trigger.event.data.refboilertemp | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: '°C'
+
+        # Boiler actual forward temperature
+      - name: Boiler Forward Temperature
+        unique_id: 9ed4e0e9-e1bc-4cd2-938c-6da7d39821f2
+        state: >-
+          {% set val = trigger.event.data.boilertemp | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: '°C'
+
+        # Boiler air flow
+      - name: Boiler Air
+        unique_id: 0001ae1a-34ca-4ea1-a1dd-a8feb13ad514
+        state: >-
+          {% set val = trigger.event.data.refair | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: volume_flow_rate
+        state_class: measurement
+        unit_of_measurement: 'm³/h'
+
+        # Boiler air intake blower percent
+      - name: Boiler Blower
+        unique_id: 0f412a06-8adc-4b8e-828f-34d1e0c332b2
+        state: >-
+          {% set val = trigger.event.data.blower | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        state_class: measurement
+        unit_of_measurement: '%'
+
+        # Boiler exhaust blower percent
+      - name: Boiler Exhaust Blower
+        unique_id: f3e753c7-8940-4732-b094-b51aadbc1a79
+        state: >-
+          {% set val = trigger.event.data.exhaust | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        state_class: measurement
+        unit_of_measurement: '%'
+
+        # Boiler current output power
+      - name: Boiler Output Power
+        unique_id: 7131be07-5044-4b9c-b072-1086046b7e1c
+        state: >-
+          {% set val = trigger.event.data.outputpwr | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: power
+        state_class: measurement
+        unit_of_measurement: 'kW'
+
+        # Boiler current output percent
+      - name: Boiler Output Percent
+        unique_id: 84de80b6-32b2-49af-adae-fe3838df0de4
+        state: >-
+          {% set val = trigger.event.data.outputpct | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        state_class: measurement
+        unit_of_measurement: '%'
+
+        # Boiler return temperature
+      - name: Boiler Return Temperature
+        unique_id: 5cb4cc00-dd53-4430-9246-2e7930fa864b
+        state: >-
+          {% set val = trigger.event.data.returntemp | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: '°C'
+
+        # Boiler shaft temperature
+      - name: Boiler Shaft Temperature
+        unique_id: 031fd28e-e4cb-48e1-9d33-7150d94633d9
+        state: >-
+          {% set val = trigger.event.data.shafttemp | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: '°C'
+
+        # Boiler exhaust gas temperature (smoke gas)
+      - name: Boiler Exhaust Temperature
+        unique_id: 32678145-dba0-4eab-b50a-adcce3452792
+        state: >-
+          {% set val = trigger.event.data.smoketemp | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: '°C'
+
+        # Boiler exhaust gas oxygen actual level
+      - name: Boiler Oxygen
+        unique_id: b3825a8f-8ce0-40aa-876a-e6901381a30a
+        state: >-
+          {% set val = trigger.event.data.oxygen | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        state_class: measurement
+        unit_of_measurement: '%'
+
+        # Boiler exhaust gas oxygen target level
+      - name: Boiler Oxygen Target
+        unique_id: c4308176-71ab-4815-8258-a52c47bef64c
+        state: >-
+          {% set val = trigger.event.data.refoxygen | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        state_class: measurement
+        unit_of_measurement: '%'
+
+        # Boiler vacuum
+      - name: Boiler Vacuum
+        unique_id: f820008d-bb8f-4fa8-803d-c5c09ee8b259
+        state: >-
+          {% set val = trigger.event.data.pressure | default(None) %}
+          {{ states(this.entity_id) if val == None else val | float }}
+        device_class: pressure
+        state_class: measurement
+        unit_of_measurement: 'Pa'
+
+      
