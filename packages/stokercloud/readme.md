@@ -1,11 +1,11 @@
 # Stokercloud API integration
 
-Simple package exposing sensors and controls from [stokercloud](https://stokercloud.dk/) using the built in integrations in HA.
+Simple package exposing sensors and controls from [StokerCloud](https://stokercloud.dk/) using the built in integrations in HA.
 
 Requires configuration of secrets in the "secrets.yaml" file
 ```
-stokercloud_user: [Your stokercloud username]
-stokercloud_password: [Your stokercloud password]
+stokercloud_user: [Your StokerCloud username]
+stokercloud_password: [Your StokerCloud password]
 ```
 
 Image shows sensors and controls currently available.
