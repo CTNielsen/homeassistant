@@ -1,3 +1,7 @@
+# Requires sescrets
+# Secret: stokercloud_user
+# Secret: stokercloud_password
+
 
 rest_command:
   # Request refreshtoken.
