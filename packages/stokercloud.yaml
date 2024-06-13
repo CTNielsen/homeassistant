@@ -285,7 +285,7 @@ template:
       - name: Boiler On
         unique_id: d95fc5b2-f70b-47cf-b59f-be0ac7f8362c
         state: "{{ states('binary_sensor.boiler_running') == 'on' or 
-          states('sensor.boiler_state') in ['IGNITION_1', 'IGNITION_2', 'RUNNING', 'RUNNING_HW', 'STOPPED_TR', 'CLEANING'] }}"
+          states('sensor.boiler_state') in ['IGNITION_1', 'IGNITION_2', 'RUNNING', 'RUNNING_HW', 'STOPPED_TR', 'STOPPED_EC', 'CLEANING'] }}"
 
         # Template sensor that adds additional conditions to the 'Alarm' feedback from boiler
       - name: Boiler Fault
