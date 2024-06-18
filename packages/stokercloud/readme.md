@@ -1,4 +1,4 @@
-# Stokercloud API integration
+# Stokercloud API "integration"
 
 Simple package exposing sensors and controls from [StokerCloud](https://stokercloud.dk/) using only the built in functionality of HA.
 
