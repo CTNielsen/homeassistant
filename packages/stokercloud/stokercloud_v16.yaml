@@ -20,7 +20,7 @@ rest_command:
     headers:
       accept: "application/json"
 
-  # Set boiler forward temperature.
+  # Post boiler update
   # Parameters:
   #   token:          Refreshtoken from authenticate command
   #   target:         Target to update. Currently known targets
