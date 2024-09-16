@@ -20,7 +20,7 @@ rest_command:
     headers:
       accept: "application/json"
 
-  # Post boiler update
+  # Set boiler forward temperature.
   # Parameters:
   #   token:          Refreshtoken from authenticate command
   #   target:         Target to update. Currently known targets
@@ -285,7 +285,7 @@ template:
       - name: Boiler On
         unique_id: d95fc5b2-f70b-47cf-b59f-be0ac7f8362c
         state: "{{ states('binary_sensor.boiler_running') == 'on' or 
-          states('sensor.boiler_state') in ['IGNITION_1', 'IGNITION_2', 'RUNNING', 'RUNNING_HW', 'STOPPED_TR', 'STOPPED_EC', 'CLEANING'] }}"
+          states('sensor.boiler_state') in ['IGNITION_1', 'IGNITION_2', 'RUNNING', 'RUNNING_HW', 'STOPPED_TR', 'STOPPED_CA', 'STOPPED_EC', 'CLEANING'] }}"
 
         # Template sensor that adds additional conditions to the 'Alarm' feedback from boiler
       - name: Boiler Fault
@@ -339,6 +339,7 @@ template:
                 'lng_state_9':'STOPPED_TR',
                 'lng_state_13':'FAULT_IGNITION',
                 'lng_state_14':'STOPPED',
+                'lng_state_23':'STOPPED_CA',
                 'lng_state_24':'STOPPED_EC',
                 'lng_state_43':'CLEANING',
                 'lng_state_46':'HOPPER_EMPTY'
