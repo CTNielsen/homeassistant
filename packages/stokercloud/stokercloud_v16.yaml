@@ -60,6 +60,8 @@ switch:
       boiler_on_off:
         friendly_name: Boiler On/Off
         unique_id: b224f64d-2439-4977-aad6-c2109b78fed1
+        availability_template: >-
+          {{ states('binary_sensor.boiler_on') not in ['unavailable'] }}
         value_template: "{{ states('binary_sensor.boiler_on') }}"
         turn_on:
           - service: rest_command.stokercloud_authenticate
@@ -284,12 +286,14 @@ template:
         # Entity ID 'binary_sensor.boiler_on' used by other sensors 
       - name: Boiler On
         unique_id: d95fc5b2-f70b-47cf-b59f-be0ac7f8362c
+        availability: "{{ states('binary_sensor.boiler_running') not in ['unavailable'] and states('sensor.boiler_state') not in ['unavailable'] }}"
         state: "{{ states('binary_sensor.boiler_running') == 'on' or 
           states('sensor.boiler_state') in ['IGNITION_1', 'IGNITION_2', 'RUNNING', 'RUNNING_HW', 'STOPPED_TR', 'STOPPED_CA', 'STOPPED_EC', 'CLEANING'] }}"
 
         # Template sensor that adds additional conditions to the 'Alarm' feedback from boiler
       - name: Boiler Fault
         unique_id: 8f360e64-fb93-4028-ba3a-9c3e3f9dffc3
+        availability: "{{ states('binary_sensor.boiler_alarm') not in ['unavailable'] and states('sensor.boiler_state') not in ['unavailable'] }}"
         state: "{{ states('binary_sensor.boiler_alarm') == 'on' or
           states('sensor.boiler_state') in ['FAULT_IGNITION', 'HOPPER_EMPTY'] }}"
 
@@ -309,6 +313,7 @@ template:
         # Entity ID 'binary_sensor.boiler_running' used by other sensors 
       - name: Boiler Running
         unique_id: f675f94f-b17f-4013-b672-356fd834e2a3
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: "{{ trigger.event.data.running | default(states(this.entity_id)) }}"
 
         # Boiler alarm state.
@@ -317,6 +322,7 @@ template:
         # Entity ID 'binary_sensor.boiler_alarm' used by other sensors 
       - name: Boiler Alarm
         unique_id: bcd52df0-b215-4a73-b86d-e9631f12658c
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: "{{ trigger.event.data.alarm | default(states(this.entity_id)) }}"
 
     sensor:
@@ -325,6 +331,7 @@ template:
         # Entity ID 'sensor.boiler_state' used by other sensors
       - name: Boiler State
         unique_id: 28ed9ce1-65f0-45e4-8470-c6f96eb2b339
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         device_class: enum
         state: >-
           {% if trigger.event.data.state | default(None) == None %}
@@ -351,6 +358,7 @@ template:
         # Boiler info message. Info message index are translated into known messages or passed as is if unknown
       - name: Boiler Info Message
         unique_id: 4e0b06aa-e914-4f39-ba54-ab5a5d60cb25
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         device_class: enum
         state: >-
           {% if trigger.event.data.infomessage | default(None) == None %}
@@ -369,6 +377,7 @@ template:
         # Entity ID 'sensor.boiler_forward_temperature_target' used by other sensors
       - name: Boiler Forward Temperature Target
         unique_id: 4c30758f-143f-4ca2-8736-3cc7c5d9fcfc
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.refboilertemp | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -379,6 +388,7 @@ template:
         # Boiler actual forward temperature
       - name: Boiler Forward Temperature
         unique_id: 9ed4e0e9-e1bc-4cd2-938c-6da7d39821f2
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.boilertemp | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -389,6 +399,7 @@ template:
         # Boiler air flow
       - name: Boiler Air
         unique_id: 0001ae1a-34ca-4ea1-a1dd-a8feb13ad514
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.refair | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -399,6 +410,7 @@ template:
         # Boiler air intake blower percent
       - name: Boiler Blower
         unique_id: 0f412a06-8adc-4b8e-828f-34d1e0c332b2
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.blower | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -408,6 +420,7 @@ template:
         # Boiler exhaust blower percent
       - name: Boiler Exhaust Blower
         unique_id: f3e753c7-8940-4732-b094-b51aadbc1a79
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.exhaust | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -417,6 +430,7 @@ template:
         # Boiler current output power
       - name: Boiler Output Power
         unique_id: 7131be07-5044-4b9c-b072-1086046b7e1c
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.outputpwr | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -427,6 +441,7 @@ template:
         # Boiler current output percent
       - name: Boiler Output Percent
         unique_id: 84de80b6-32b2-49af-adae-fe3838df0de4
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.outputpct | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -436,6 +451,7 @@ template:
         # Boiler return temperature
       - name: Boiler Return Temperature
         unique_id: 5cb4cc00-dd53-4430-9246-2e7930fa864b
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.returntemp | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -446,6 +462,7 @@ template:
         # Boiler shaft temperature
       - name: Boiler Shaft Temperature
         unique_id: 031fd28e-e4cb-48e1-9d33-7150d94633d9
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.shafttemp | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -456,6 +473,7 @@ template:
         # Boiler exhaust gas temperature (smoke gas)
       - name: Boiler Exhaust Temperature
         unique_id: 32678145-dba0-4eab-b50a-adcce3452792
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.smoketemp | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -466,6 +484,7 @@ template:
         # Boiler exhaust gas oxygen actual level
       - name: Boiler Oxygen
         unique_id: b3825a8f-8ce0-40aa-876a-e6901381a30a
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.oxygen | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -475,6 +494,7 @@ template:
         # Boiler exhaust gas oxygen target level
       - name: Boiler Oxygen Target
         unique_id: c4308176-71ab-4815-8258-a52c47bef64c
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.refoxygen | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
@@ -484,6 +504,7 @@ template:
         # Boiler vacuum
       - name: Boiler Vacuum
         unique_id: f820008d-bb8f-4fa8-803d-c5c09ee8b259
+        availability: "{{ trigger.event.data.isonline | default(states(this.entity_id)) }}"
         state: >-
           {% set val = trigger.event.data.pressure | default(None) %}
           {{ states(this.entity_id) if val == None else val | float }}
