@@ -9,3 +9,4 @@ To configure home assistant to use packages add the following lines to the `conf
 homeassistant:
   packages: !include_dir_named packages
 ```
+Or see [Packages](https://www.home-assistant.io/docs/configuration/packages/) documentation
